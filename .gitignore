@@ -1,0 +1,29 @@
+# 원본 데이터 — GitHub 파일 크기 제한(100MB)을 넘거나 용량이 커서 추적하지 않는다
+*.parquet
+*.csv
+results.txt
+data/
+
+# 산출물
+# 차트(248KB)와 표(20KB)는 report.md가 참조하므로 추적한다.
+# 추적하지 않으면 GitHub에서 보고서의 이미지가 깨진다.
+# 위의 *.csv 규칙에 걸리지 않도록 예외로 다시 포함시킨다.
+!outputs/tables/*.csv
+# 모델 파일만 용량(약 112MB) 때문에 제외한다 — main.py 실행 시 재생성된다.
+outputs/models/*.pkl
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# 도구 캐시
+.ruff_cache/
+.pytest_cache/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
