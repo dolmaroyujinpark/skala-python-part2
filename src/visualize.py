@@ -13,26 +13,33 @@
 산출 파일  : outputs/figures/*.png (정적), outputs/figures/*.html (인터랙티브)
 """
 
+from typing import Any
+
 import matplotlib
 import pandas as pd
 
 # 저장 전용 백엔드를 사용한다. 화면 장치가 없는 환경에서도 파일 생성이 가능하다.
 matplotlib.use("Agg")
 
-import matplotlib.pyplot as plt  # noqa: E402
-import plotly.graph_objects as go  # noqa: E402
-import seaborn as sns  # noqa: E402
-from matplotlib import font_manager  # noqa: E402
-from plotly.subplots import make_subplots  # noqa: E402
+import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import seaborn as sns
+from matplotlib import font_manager
+from plotly.subplots import make_subplots
 
-from src.common import subsection  # noqa: E402
-from src.config import FIGURE_DIR  # noqa: E402
+from src.common import subsection
+from src.config import FIGURE_DIR
 
 # 한글 축 레이블이 깨지지 않도록 설치된 한글 폰트를 찾아 지정한다.
 # 주의: sns.set_theme()이 rcParams의 폰트 설정을 덮어쓰므로 반드시 테마를 먼저 적용한다.
 sns.set_theme(style="whitegrid")
 
-KOREAN_FONT_CANDIDATES = ["AppleGothic", "Apple SD Gothic Neo", "NanumGothic", "Malgun Gothic"]
+KOREAN_FONT_CANDIDATES = [
+    "AppleGothic",
+    "Apple SD Gothic Neo",
+    "NanumGothic",
+    "Malgun Gothic",
+]
 
 
 def _apply_korean_font() -> str:
@@ -112,7 +119,11 @@ def plot_speed_heatmap(pivot: pd.DataFrame) -> str:
     """
     fig, ax = plt.subplots(figsize=(14, 4.5))
     sns.heatmap(
-        pivot, cmap="RdYlGn", annot=False, linewidths=0.4, ax=ax,
+        pivot,
+        cmap="RdYlGn",
+        annot=False,
+        linewidths=0.4,
+        ax=ax,
         cbar_kws={"label": "평균 속도 (mph)"},
     )
     ax.set_title("뉴욕 옐로우캡 시간대·요일별 평균 주행 속도", fontsize=14, pad=12)
@@ -134,8 +145,14 @@ def plot_correlation_heatmap(corr: pd.DataFrame) -> str:
     """
     fig, ax = plt.subplots(figsize=(9, 7))
     sns.heatmap(
-        corr, cmap="coolwarm", center=0, annot=True, fmt=".2f",
-        linewidths=0.4, ax=ax, cbar_kws={"label": "피어슨 상관계수"},
+        corr,
+        cmap="coolwarm",
+        center=0,
+        annot=True,
+        fmt=".2f",
+        linewidths=0.4,
+        ax=ax,
+        cbar_kws={"label": "피어슨 상관계수"},
     )
     ax.set_title("수치형 변수 간 상관계수", fontsize=14, pad=12)
     ax.set_xlabel("변수", fontsize=11)
@@ -158,8 +175,14 @@ def plot_distance_distribution(df: pd.DataFrame) -> str:
     fig, ax = plt.subplots(figsize=(10, 5))
     subset = df[df["trip_distance"] <= 15]
     sns.histplot(
-        data=subset, x="trip_distance", hue="jam_abs", bins=60,
-        stat="density", common_norm=False, element="step", ax=ax,
+        data=subset,
+        x="trip_distance",
+        hue="jam_abs",
+        bins=60,
+        stat="density",
+        common_norm=False,
+        element="step",
+        ax=ax,
     )
     ax.set_title("정체 여부에 따른 주행거리 분포 (15마일 이하)", fontsize=14, pad=12)
     ax.set_xlabel("주행거리 (마일)", fontsize=11)
@@ -186,15 +209,20 @@ def plot_hourly_interactive(hourly: pd.DataFrame) -> str:
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(
         go.Scatter(
-            x=hourly.index, y=hourly["평균속도"], name="평균 속도 (mph)",
-            mode="lines+markers", line={"width": 3},
+            x=hourly.index,
+            y=hourly["평균속도"],
+            name="평균 속도 (mph)",
+            mode="lines+markers",
+            line={"width": 3},
             hovertemplate="%{x}시<br>평균 속도 %{y:.2f} mph<extra></extra>",
         ),
         secondary_y=False,
     )
     fig.add_trace(
         go.Bar(
-            x=hourly.index, y=hourly["정체비율"], name="정체 비율 (%)",
+            x=hourly.index,
+            y=hourly["정체비율"],
+            name="정체 비율 (%)",
             opacity=0.45,
             hovertemplate="%{x}시<br>정체 비율 %{y:.1f}%<extra></extra>",
         ),
@@ -234,17 +262,26 @@ def plot_zone_interactive(df: pd.DataFrame, top_n: int = 20) -> str:
 
     fig = go.Figure(
         go.Bar(
-            x=zone.index.astype(str), y=zone["정체율"],
-            marker={"color": zone["평균속도"], "colorscale": "RdYlGn",
-                    "colorbar": {"title": "평균 속도<br>(mph)"}},
+            x=zone.index.astype(str),
+            y=zone["정체율"],
+            marker={
+                "color": zone["평균속도"],
+                "colorscale": "RdYlGn",
+                "colorbar": {"title": "평균 속도<br>(mph)"},
+            },
             customdata=zone[["트립수", "평균속도"]].values,
-            hovertemplate=("존 %{x}<br>정체율 %{y:.1f}%<br>"
-                           "트립수 %{customdata[0]:,}<br>"
-                           "평균 속도 %{customdata[1]:.2f} mph<extra></extra>"),
+            hovertemplate=(
+                "존 %{x}<br>정체율 %{y:.1f}%<br>"
+                "트립수 %{customdata[0]:,}<br>"
+                "평균 속도 %{customdata[1]:.2f} mph<extra></extra>"
+            ),
         )
     )
     fig.update_layout(
-        title={"text": f"정체율이 높은 출발 존 상위 {top_n}개 (트립 500건 이상)", "x": 0.5},
+        title={
+            "text": f"정체율이 높은 출발 존 상위 {top_n}개 (트립 500건 이상)",
+            "x": 0.5,
+        },
         xaxis_title="출발 존 ID (PULocationID)",
         yaxis_title="정체 트립 비율 (%)",
         template="plotly_white",
@@ -252,7 +289,7 @@ def plot_zone_interactive(df: pd.DataFrame, top_n: int = 20) -> str:
     return _save_html(fig, "05_zone_jam_rate_plotly.html")
 
 
-def create_all_figures(df: pd.DataFrame, eda_result: dict) -> dict:
+def create_all_figures(df: pd.DataFrame, eda_result: dict[str, Any]) -> dict[str, Any]:
     """모든 차트를 생성하고 저장 경로를 모아 반환한다.
 
     Args:

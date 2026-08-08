@@ -22,6 +22,7 @@
 
 import sys
 import time
+from typing import Any
 
 from src import eda, model, preprocess, report, stats_test, visualize
 from src.common import section
@@ -29,7 +30,7 @@ from src.config import ensure_output_dirs, resolve_data_path
 from src.data_loader import compare_loaders
 
 
-def run_pipeline() -> dict:
+def run_pipeline() -> dict[str, Any]:
     """전체 분석 파이프라인을 순서대로 실행한다.
 
     각 단계의 결과를 context 딕셔너리에 누적해 마지막 보고서 생성에 사용한다.
@@ -41,7 +42,7 @@ def run_pipeline() -> dict:
         FileNotFoundError: 원본 데이터 파일을 찾지 못한 경우.
         RuntimeError: 로딩 또는 보고서 저장에 실패한 경우.
     """
-    context: dict = {}
+    context: dict[str, Any] = {}
     ensure_output_dirs()
 
     # ------------------------------------------------------------------
@@ -132,8 +133,10 @@ def main() -> int:
         print(f"\n[오류] 실행 중 문제가 발생했습니다: {exc}", file=sys.stderr)
         return 1
     except MemoryError:
-        print("\n[오류] 메모리가 부족합니다. config.SAMPLE_SIZE를 줄여 다시 시도하세요.",
-              file=sys.stderr)
+        print(
+            "\n[오류] 메모리가 부족합니다. config.SAMPLE_SIZE를 줄여 다시 시도하세요.",
+            file=sys.stderr,
+        )
         return 1
 
     elapsed = time.perf_counter() - started

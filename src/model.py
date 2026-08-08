@@ -15,8 +15,10 @@
 """
 
 import time
+from typing import Any
 
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.dummy import DummyClassifier
@@ -67,21 +69,30 @@ def build_preprocessor() -> ColumnTransformer:
     Returns:
         ColumnTransformer: 두 갈래 전처리를 묶은 변환기.
     """
-    numeric_pipeline = Pipeline([
-        ("impute", SimpleImputer(strategy="median")),
-        ("scale", StandardScaler()),
-    ])
-    categorical_pipeline = Pipeline([
-        ("impute", SimpleImputer(strategy="most_frequent")),
-        ("encode", OneHotEncoder(
-            handle_unknown="infrequent_if_exist",
-            min_frequency=MIN_CATEGORY_FREQUENCY,
-        )),
-    ])
-    return ColumnTransformer([
-        ("numeric", numeric_pipeline, NUMERIC_FEATURES),
-        ("categorical", categorical_pipeline, CATEGORICAL_FEATURES),
-    ])
+    numeric_pipeline = Pipeline(
+        [
+            ("impute", SimpleImputer(strategy="median")),
+            ("scale", StandardScaler()),
+        ]
+    )
+    categorical_pipeline = Pipeline(
+        [
+            ("impute", SimpleImputer(strategy="most_frequent")),
+            (
+                "encode",
+                OneHotEncoder(
+                    handle_unknown="infrequent_if_exist",
+                    min_frequency=MIN_CATEGORY_FREQUENCY,
+                ),
+            ),
+        ]
+    )
+    return ColumnTransformer(
+        [
+            ("numeric", numeric_pipeline, NUMERIC_FEATURES),
+            ("categorical", categorical_pipeline, CATEGORICAL_FEATURES),
+        ]
+    )
 
 
 def build_pipeline(model: object) -> Pipeline:
@@ -96,13 +107,15 @@ def build_pipeline(model: object) -> Pipeline:
     Returns:
         Pipeline: 전처리 + 모델 파이프라인.
     """
-    return Pipeline([
-        ("preprocess", build_preprocessor()),
-        ("classifier", model),
-    ])
+    return Pipeline(
+        [
+            ("preprocess", build_preprocessor()),
+            ("classifier", model),
+        ]
+    )
 
 
-def _evaluate(y_true: pd.Series, y_pred: pd.Series) -> dict:
+def _evaluate(y_true: pd.Series, y_pred: pd.Series) -> dict[str, Any]:
     """예측 결과로부터 분류 평가 지표를 계산한다.
 
     기준선 모델과 본 모델에 같은 지표를 적용하기 위해 공용 함수로 분리했다.
@@ -117,12 +130,14 @@ def _evaluate(y_true: pd.Series, y_pred: pd.Series) -> dict:
     return {
         "정확도": accuracy_score(y_true, y_pred),
         "F1(macro)": f1_score(y_true, y_pred, average="macro"),
-        "정밀도(macro)": precision_score(y_true, y_pred, average="macro", zero_division=0),
+        "정밀도(macro)": precision_score(
+            y_true, y_pred, average="macro", zero_division=0
+        ),
         "재현율(macro)": recall_score(y_true, y_pred, average="macro", zero_division=0),
     }
 
 
-def train_and_evaluate(df: pd.DataFrame, target: str) -> dict:
+def train_and_evaluate(df: pd.DataFrame, target: str) -> dict[str, Any]:
     """지정한 타깃에 대해 모델을 학습하고 평가한다.
 
     Args:
@@ -146,10 +161,16 @@ def train_and_evaluate(df: pd.DataFrame, target: str) -> dict:
     labels = sample[target]
 
     x_train, x_test, y_train, y_test = train_test_split(
-        features, labels, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=labels
+        features,
+        labels,
+        test_size=TEST_SIZE,
+        random_state=RANDOM_STATE,
+        stratify=labels,
     )
     print(f"\n  · 타깃 '{target}' — {TARGETS[target]}")
-    print(f"    표본 {sample_size:,}행 (학습 {len(x_train):,} / 테스트 {len(x_test):,})")
+    print(
+        f"    표본 {sample_size:,}행 (학습 {len(x_train):,} / 테스트 {len(x_test):,})"
+    )
     print(f"    클래스 분포: {labels.value_counts(normalize=True).round(3).to_dict()}")
 
     # (1) 기준선 — 항상 최빈 클래스만 예측하는 모델
@@ -158,12 +179,14 @@ def train_and_evaluate(df: pd.DataFrame, target: str) -> dict:
     baseline_scores = _evaluate(y_test, baseline.predict(x_test))
 
     # (2) 본 모델 — 랜덤 포레스트
-    pipeline = build_pipeline(RandomForestClassifier(
-        n_estimators=N_ESTIMATORS,
-        min_samples_leaf=MIN_SAMPLES_LEAF,
-        random_state=RANDOM_STATE,
-        n_jobs=-1,
-    ))
+    pipeline = build_pipeline(
+        RandomForestClassifier(
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+        )
+    )
     start = time.perf_counter()
     pipeline.fit(x_train, y_train)
     fit_seconds = time.perf_counter() - start
@@ -171,16 +194,19 @@ def train_and_evaluate(df: pd.DataFrame, target: str) -> dict:
     y_pred = pipeline.predict(x_test)
     scores = _evaluate(y_test, y_pred)
 
-    n_features = pipeline.named_steps["preprocess"].transform(x_test.head(5)).shape[1]
+    transformed_sample = pipeline.named_steps["preprocess"].transform(x_test.head(5))
+    n_features = transformed_sample.shape[1]
     print(f"    전처리 후 피처 수: {n_features}개  |  학습 시간: {fit_seconds:.1f}초")
     print(f"    {'지표':<14}{'기준선':>10}{'모델':>10}{'개선':>10}")
     for key in scores:
         gain = scores[key] - baseline_scores[key]
-        print(f"    {key:<14}{baseline_scores[key]:>10.4f}{scores[key]:>10.4f}{gain:>+10.4f}")
+        print(
+            f"    {key:<14}{baseline_scores[key]:>10.4f}{scores[key]:>10.4f}{gain:>+10.4f}"
+        )
 
     print("\n    분류 리포트")
     report = classification_report(
-        y_test, y_pred, target_names=["비정체", "정체"], digits=4, zero_division=0
+        y_test, y_pred, target_names=["비정체", "정체"], digits=4, zero_division=np.nan
     )
     print("      " + report.replace("\n", "\n      "))
 
@@ -231,7 +257,7 @@ def save_model(pipeline: Pipeline, target: str) -> str:
         return ""
 
 
-def run_modeling(df: pd.DataFrame) -> dict:
+def run_modeling(df: pd.DataFrame) -> dict[str, Any]:
     """두 타깃에 대해 학습·평가·저장을 수행하고 결과를 비교한다.
 
     Args:
@@ -252,17 +278,21 @@ def run_modeling(df: pd.DataFrame) -> dict:
     subsection("6-3. 두 타깃 정의 비교")
     rows = []
     for target, result in results.items():
-        rows.append({
-            "타깃": target,
-            "정의": result["description"],
-            "정확도": round(result["scores"]["정확도"], 4),
-            "F1(macro)": round(result["scores"]["F1(macro)"], 4),
-            "기준선 F1": round(result["baseline_scores"]["F1(macro)"], 4),
-            "F1 개선": round(
-                result["scores"]["F1(macro)"] - result["baseline_scores"]["F1(macro)"], 4
-            ),
-            "학습(초)": round(result["fit_seconds"], 1),
-        })
+        rows.append(
+            {
+                "타깃": target,
+                "정의": result["description"],
+                "정확도": round(result["scores"]["정확도"], 4),
+                "F1(macro)": round(result["scores"]["F1(macro)"], 4),
+                "기준선 F1": round(result["baseline_scores"]["F1(macro)"], 4),
+                "F1 개선": round(
+                    result["scores"]["F1(macro)"]
+                    - result["baseline_scores"]["F1(macro)"],
+                    4,
+                ),
+                "학습(초)": round(result["fit_seconds"], 1),
+            }
+        )
     comparison = pd.DataFrame(rows).set_index("타깃")
     print(comparison.to_string())
 

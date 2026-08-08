@@ -12,13 +12,17 @@
 산출 파일  : outputs/tables/*.csv (기술통계·상관계수 표)
 """
 
+from typing import Any
+
 import pandas as pd
 
 from src.common import subsection
 from src.config import STAT_COLUMNS, TABLE_DIR
 
 
-def describe_numeric(df: pd.DataFrame, columns: list[str] | None = None) -> pd.DataFrame:
+def describe_numeric(
+    df: pd.DataFrame, columns: list[str] | None = None
+) -> pd.DataFrame:
     """수치형 변수의 기술통계를 산출한다.
 
     채점 기준이 요구하는 평균·표준편차·분위수를 모두 포함한다.
@@ -32,20 +36,29 @@ def describe_numeric(df: pd.DataFrame, columns: list[str] | None = None) -> pd.D
     """
     columns = columns or STAT_COLUMNS
     available = [c for c in columns if c in df.columns]
-    stats = df[available].agg(
-        ["count", "mean", "std", "min", "median", "max"]
-    ).T
+    stats = df[available].agg(["count", "mean", "std", "min", "median", "max"]).T
     # 분위수는 agg로 한 번에 뽑기 어려우므로 별도 계산해 결합한다
     quantiles = df[available].quantile([0.25, 0.75]).T
     quantiles.columns = ["25%", "75%"]
     result = stats.join(quantiles)
     result = result[["count", "mean", "std", "min", "25%", "median", "75%", "max"]]
-    result.columns = ["건수", "평균", "표준편차", "최솟값", "25%", "중앙값", "75%", "최댓값"]
+    result.columns = [
+        "건수",
+        "평균",
+        "표준편차",
+        "최솟값",
+        "25%",
+        "중앙값",
+        "75%",
+        "최댓값",
+    ]
     result.index.name = "변수"
     return result
 
 
-def correlation_matrix(df: pd.DataFrame, columns: list[str] | None = None) -> pd.DataFrame:
+def correlation_matrix(
+    df: pd.DataFrame, columns: list[str] | None = None
+) -> pd.DataFrame:
     """수치형 변수 간 피어슨 상관계수 행렬을 계산한다.
 
     Args:
@@ -96,7 +109,9 @@ def speed_by_hour_dow(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: 행=요일, 열=시간대인 평균 속도 피벗 테이블.
     """
-    pivot = df.pivot_table(index="dow", columns="hour", values="speed_mph", aggfunc="mean")
+    pivot = df.pivot_table(
+        index="dow", columns="hour", values="speed_mph", aggfunc="mean"
+    )
     weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
     pivot.index = [weekday_names[i] for i in pivot.index]
     pivot.index.name = "요일"
@@ -124,7 +139,7 @@ def jam_rate_by_hour(df: pd.DataFrame, target: str = "jam_abs") -> pd.DataFrame:
     return grouped
 
 
-def run_eda(df: pd.DataFrame) -> dict:
+def run_eda(df: pd.DataFrame) -> dict[str, Any]:
     """기술통계·상관계수·집계를 한 번에 수행하고 결과를 저장한다.
 
     Args:
@@ -150,8 +165,12 @@ def run_eda(df: pd.DataFrame) -> dict:
     hourly = jam_rate_by_hour(df)
     slowest = hourly["평균속도"].idxmin()
     fastest = hourly["평균속도"].idxmax()
-    print(f"  · 가장 느린 시간대: {slowest}시 ({hourly.loc[slowest, '평균속도']:.2f} mph)")
-    print(f"  · 가장 빠른 시간대: {fastest}시 ({hourly.loc[fastest, '평균속도']:.2f} mph)")
+    print(
+        f"  · 가장 느린 시간대: {slowest}시 ({hourly.loc[slowest, '평균속도']:.2f} mph)"
+    )
+    print(
+        f"  · 가장 빠른 시간대: {fastest}시 ({hourly.loc[fastest, '평균속도']:.2f} mph)"
+    )
     print(f"  · 속도 격차: {hourly['평균속도'].max() / hourly['평균속도'].min():.2f}배")
 
     _save_table(describe_df, "descriptive_stats.csv")

@@ -13,6 +13,8 @@
 산출 파일  : outputs/tables/ttest_results.csv
 """
 
+from typing import Any
+
 import pandas as pd
 from scipy import stats
 
@@ -25,7 +27,7 @@ RUSH_HOURS = list(range(7, 10)) + list(range(16, 20))
 
 def run_ttest(
     group_a: pd.Series, group_b: pd.Series, label_a: str, label_b: str, subject: str
-) -> dict:
+) -> dict[str, Any]:
     """두 집단에 대해 Welch's t-test를 수행하고 결과를 정리한다.
 
     표본 크기가 다르고 분산이 같다고 보장할 수 없으므로 equal_var=False를 쓴다.
@@ -54,8 +56,12 @@ def run_ttest(
 
     print(f"\n  · 검정 대상 : {subject}")
     print(f"    귀무가설  : {hypothesis}")
-    print(f"    {label_a:<16} n={len(a):>9,}  평균={a.mean():8.3f}  표준편차={a.std():7.3f}")
-    print(f"    {label_b:<16} n={len(b):>9,}  평균={b.mean():8.3f}  표준편차={b.std():7.3f}")
+    print(
+        f"    {label_a:<16} n={len(a):>9,}  평균={a.mean():8.3f}  표준편차={a.std():7.3f}"
+    )
+    print(
+        f"    {label_b:<16} n={len(b):>9,}  평균={b.mean():8.3f}  표준편차={b.std():7.3f}"
+    )
     print(f"    t = {result.statistic:.4f},  p = {result.pvalue:.4e}")
     print(f"    해석      : {interpretation}")
 
@@ -76,7 +82,7 @@ def run_ttest(
     }
 
 
-def run_all_tests(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
+def run_all_tests(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
     """정체와 관련된 세 가지 가설을 순서대로 검정한다.
 
     Args:
@@ -89,33 +95,48 @@ def run_all_tests(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
     results = []
 
     # 검정 1 — 정체 트립은 정말 짧은 거리인가
-    results.append(run_ttest(
-        df.loc[df["jam_abs"] == 1, "trip_distance"],
-        df.loc[df["jam_abs"] == 0, "trip_distance"],
-        "정체 트립", "비정체 트립",
-        "정체 여부에 따른 주행거리(마일) 차이",
-    ))
+    results.append(
+        run_ttest(
+            df.loc[df["jam_abs"] == 1, "trip_distance"],
+            df.loc[df["jam_abs"] == 0, "trip_distance"],
+            "정체 트립",
+            "비정체 트립",
+            "정체 여부에 따른 주행거리(마일) 차이",
+        )
+    )
 
     # 검정 2 — 주말은 평일보다 덜 막히는가
-    results.append(run_ttest(
-        df.loc[df["is_weekend"] == 1, "speed_mph"],
-        df.loc[df["is_weekend"] == 0, "speed_mph"],
-        "주말", "평일",
-        "주말/평일에 따른 평균 속도(mph) 차이",
-    ))
+    results.append(
+        run_ttest(
+            df.loc[df["is_weekend"] == 1, "speed_mph"],
+            df.loc[df["is_weekend"] == 0, "speed_mph"],
+            "주말",
+            "평일",
+            "주말/평일에 따른 평균 속도(mph) 차이",
+        )
+    )
 
     # 검정 3 — 출퇴근 시간대가 실제로 더 느린가
     is_rush = df["hour"].isin(RUSH_HOURS)
-    results.append(run_ttest(
-        df.loc[is_rush, "speed_mph"],
-        df.loc[~is_rush, "speed_mph"],
-        "출퇴근 시간대", "그 외 시간대",
-        "출퇴근 시간대 여부에 따른 평균 속도(mph) 차이",
-    ))
+    results.append(
+        run_ttest(
+            df.loc[is_rush, "speed_mph"],
+            df.loc[~is_rush, "speed_mph"],
+            "출퇴근 시간대",
+            "그 외 시간대",
+            "출퇴근 시간대 여부에 따른 평균 속도(mph) 차이",
+        )
+    )
 
     summary = pd.DataFrame(results)
     display_columns = [
-        "검정 대상", "평균(A)", "평균(B)", "평균 차이", "t 통계량", "p-value", "유의성",
+        "검정 대상",
+        "평균(A)",
+        "평균(B)",
+        "평균 차이",
+        "t 통계량",
+        "p-value",
+        "유의성",
     ]
     summary_view = summary[display_columns].set_index("검정 대상")
 
