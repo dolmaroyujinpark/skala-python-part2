@@ -1,0 +1,12 @@
+# 정적 검사(ruff) 설정.
+# 보고서에 기재한 검사 조건을 저장소에서 그대로 재현할 수 있도록 남겨 둔다.
+#   실행 : ruff check main.py src/
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E  pycodestyle 오류      F  pyflakes(미사용 변수·임포트 등)
+# I  임포트 정렬           UP 구식 문법 현대화
+# B  버그 유발 패턴(flake8-bugbear)
+select = ["E", "F", "I", "UP", "B"]

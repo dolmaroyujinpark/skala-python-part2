@@ -1,8 +1,16 @@
 # NYC 옐로우캡 정체 예측 — End2End 데이터 분석 프로젝트
 
-SKALA 교육과정 판교 10반 박유진 / Day 2 종합 실습
+SKALA 교육과정 판교 10반 5조 / Day 2 종합 실습
 
 승차 시점에 알 수 있는 정보만으로 **해당 트립이 정체 구간에 걸릴지** 예측한다.
+
+## 팀
+
+**5조** — 박유진, 강용현, 김인성, 이승석, 이중헌, 최윤영
+
+데이터셋(NYC Yellow Taxi 2026-05)만 팀에서 통일하고, **가설은 각자 세워 따로 돌린 뒤 결과를
+모아 비교**했다. 이 저장소는 그중 '정체 예측' 가설의 파이프라인이며, 비교 이후 팀 공통
+베이스로 사용했다. 조원이 참고할 컬럼·모델 정리는 [`docs/컬럼_모델_정리.md`](docs/컬럼_모델_정리.md)에 있다.
 
 ---
 
@@ -38,7 +46,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
-실행 시간은 약 20초이며, 완료 후 `outputs/` 하위에 모든 산출물이 생성된다.
+실행 시간은 약 15초이며, 완료 후 `outputs/` 하위에 모든 산출물이 생성된다.
+
+정적 검사는 `ruff check main.py src/` 로 수행한다(설정은 `pyproject.toml`).
 
 ---
 
@@ -48,6 +58,7 @@ python main.py
 skala-python-part2/
 ├── main.py                  # 전체 파이프라인 실행 (1~7단계)
 ├── requirements.txt
+├── pyproject.toml           # ruff 정적 검사 설정
 ├── README.md
 ├── data/
 │   └── yellow_tripdata_2026-05.parquet   # 원본 (git 추적 제외)
@@ -61,6 +72,10 @@ skala-python-part2/
 │   ├── stats_test.py        # 5단계 t-test 및 p-value 해석
 │   ├── model.py             # 6단계 sklearn Pipeline 학습·평가·저장
 │   └── report.py            # 7단계 report.md 자동 생성
+├── docs/
+│   ├── 컬럼_모델_정리.md      # 조원 공유용 컬럼·모델 정리
+│   ├── captures/            # 실행결과 캡처
+│   └── tools/               # 제출용 보고서(docx) 생성 스크립트
 └── outputs/
     ├── report.md            # 자동 생성 분석 보고서
     ├── figures/             # 정적 차트 3종(PNG) + 인터랙티브 2종(HTML)
