@@ -15,6 +15,7 @@
 """
 
 from datetime import datetime
+from typing import Any
 
 from src.common import format_int, subsection, to_markdown_table
 from src.config import (
@@ -28,7 +29,7 @@ from src.config import (
 )
 
 
-def _section_header(context: dict) -> list[str]:
+def _section_header(context: dict[str, Any]) -> list[str]:
     """보고서 머리말과 분석 개요를 만든다.
 
     Args:
@@ -37,7 +38,7 @@ def _section_header(context: dict) -> list[str]:
     Returns:
         list[str]: 마크다운 문단 리스트.
     """
-    generated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    generated = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
     load = context["load"]
     return [
         "# 뉴욕 옐로우캡 정체 예측 분석 보고서",
@@ -46,8 +47,10 @@ def _section_header(context: dict) -> list[str]:
         "",
         f"- **생성 일시** : {generated}",
         "- **작성자** : 판교 10반 박유진",
-        f"- **데이터** : NYC TLC Yellow Taxi 2026년 5월 "
-        f"({format_int(load['shape'][0])}행 × {load['shape'][1]}열)",
+        (
+            f"- **데이터** : NYC TLC Yellow Taxi 2026년 5월 "
+            f"({format_int(load['shape'][0])}행 × {load['shape'][1]}열)"
+        ),
         f"- **난수 시드** : {RANDOM_STATE} (재현 가능)",
         "",
         "## 분석 목표",
@@ -59,13 +62,15 @@ def _section_header(context: dict) -> list[str]:
         "정체의 정의는 하나로 정하지 않고 **두 가지를 함께 학습해 비교**한다.",
         "",
         f"- **절대정체(jam_abs)** : 전체 트립 평균 속도 분포의 하위 {JAM_QUANTILE * 100:.0f}%",
-        f"- **상대정체(jam_rel)** : 동일 경로(출발존→도착존)의 평소 중앙 속도 대비 하위 "
-        f"{JAM_QUANTILE * 100:.0f}%",
+        (
+            f"- **상대정체(jam_rel)** : 동일 경로(출발존→도착존)의 평소 중앙 속도 대비 하위 "
+            f"{JAM_QUANTILE * 100:.0f}%"
+        ),
         "",
     ]
 
 
-def _section_loading(context: dict) -> list[str]:
+def _section_loading(context: dict[str, Any]) -> list[str]:
     """Pandas / Polars 로딩 비교 절을 만든다.
 
     Args:
@@ -91,8 +96,10 @@ def _section_loading(context: dict) -> list[str]:
         "### 결과 일치 검증",
         "",
         f"- 행/열 개수 일치 : **{load['shape_match']}**",
-        f"- 컬럼별 결측 수 일치 : **{load['missing_match']}** "
-        f"(전체 결측 {format_int(load['total_missing'])}건)",
+        (
+            f"- 컬럼별 결측 수 일치 : **{load['missing_match']}** "
+            f"(전체 결측 {format_int(load['total_missing'])}건)"
+        ),
         "",
         "### 분위수 계산 시 주의점",
         "",
@@ -103,10 +110,14 @@ def _section_loading(context: dict) -> list[str]:
         "",
     ]
     if load["interpolation_differs"]:
-        lines.append("실제로 값 차이가 확인되었으므로, 두 라이브러리 결과를 대조할 때는")
-        lines.append("`interpolation=\"linear\"`를 명시해야 한다.")
+        lines.append(
+            "실제로 값 차이가 확인되었으므로, 두 라이브러리 결과를 대조할 때는"
+        )
+        lines.append('`interpolation="linear"`를 명시해야 한다.')
     else:
-        lines.append("이 컬럼에서는 두 보간법의 결과가 일치했으나, 일반적으로는 명시가 필요하다.")
+        lines.append(
+            "이 컬럼에서는 두 보간법의 결과가 일치했으나, 일반적으로는 명시가 필요하다."
+        )
     lines.append("")
 
     agg = load["aggregation"]
@@ -119,16 +130,20 @@ def _section_loading(context: dict) -> list[str]:
         "",
         f"- Polars `scan_parquet` + `group_by` : {load['lazy_sec']:.3f}초",
         f"- Pandas `groupby` : {load['pandas_agg_sec']:.3f}초",
-        f"- Lazy 집계가 **{load['agg_speedup']:.2f}배** 빠르다 "
-        f"(필요한 {len(LAZY_SCAN_COLUMNS)}개 컬럼만 읽기 때문)",
+        (
+            f"- Lazy 집계가 **{load['agg_speedup']:.2f}배** 빠르다 "
+            f"(필요한 {len(LAZY_SCAN_COLUMNS)}개 컬럼만 읽기 때문)"
+        ),
         "",
         to_markdown_table(agg["table"], floatfmt="{:.3f}"),
         "",
     ]
     if agg["polars_groups"] > agg["pandas_groups"]:
         lines += [
-            f"**두 결과의 그룹 수가 다르다** — Pandas {agg['pandas_groups']}개, "
-            f"Polars {agg['polars_groups']}개.",
+            (
+                f"**두 결과의 그룹 수가 다르다** — Pandas {agg['pandas_groups']}개, "
+                f"Polars {agg['polars_groups']}개."
+            ),
             "",
             "Pandas의 `groupby`는 그룹 키가 결측인 행을 **기본적으로 제외**하지만,",
             "Polars의 `group_by`는 null을 **하나의 그룹으로 유지**한다.",
@@ -146,7 +161,7 @@ def _section_loading(context: dict) -> list[str]:
     return lines
 
 
-def _section_cleaning(context: dict) -> list[str]:
+def _section_cleaning(context: dict[str, Any]) -> list[str]:
     """결측·중복·이상치 처리 절을 만든다.
 
     Args:
@@ -172,19 +187,27 @@ def _section_cleaning(context: dict) -> list[str]:
         lines.append("| 컬럼 | 결측 수 | 비율(%) |")
         lines.append("|---|---|---|")
         for column, row in diag["nan_table"].iterrows():
-            lines.append(f"| `{column}` | {format_int(row['결측수'])} | {row['비율(%)']:.3f} |")
+            lines.append(
+                f"| `{column}` | {format_int(row['결측수'])} | {row['비율(%)']:.3f} |"
+            )
     lines.append("")
 
     if block.get("has_block"):
         columns = ", ".join(f"`{c}`" for c in block["columns"])
         lines += [
-            f"**핵심 발견** — 위 {len(block['columns'])}개 컬럼({columns})의 결측 위치가 "
-            "서로 **완전히 일치**한다.",
-            f"해당 블록의 크기는 **{format_int(block['block_rows'])}행"
-            f"({block['block_ratio'] * 100:.1f}%)** 이다.",
+            (
+                f"**핵심 발견** — 위 {len(block['columns'])}개 컬럼({columns})의 결측 위치가 "
+                "서로 **완전히 일치**한다."
+            ),
+            (
+                f"해당 블록의 크기는 **{format_int(block['block_rows'])}행"
+                f"({block['block_ratio'] * 100:.1f}%)** 이다."
+            ),
             "",
-            "즉 값이 개별적으로 빠진 것이 아니라, "
-            "**특정 데이터 소스가 해당 필드를 통째로 비운 것**이다.",
+            (
+                "즉 값이 개별적으로 빠진 것이 아니라, "
+                "**특정 데이터 소스가 해당 필드를 통째로 비운 것**이다."
+            ),
             "이 경우 평균·최빈값 대체는 존재하지 않는 값을 지어내는 셈이므로 적절하지 않다.",
             "",
             "이를 뒷받침하는 근거로, 블록 안팎의 벤더 구성이 서로 겹치지 않는다.",
@@ -234,7 +257,7 @@ def _section_cleaning(context: dict) -> list[str]:
     return lines
 
 
-def _section_targets(context: dict) -> list[str]:
+def _section_targets(context: dict[str, Any]) -> list[str]:
     """타깃 정의 절을 만든다.
 
     Args:
@@ -249,14 +272,20 @@ def _section_targets(context: dict) -> list[str]:
         "",
         "| 항목 | 절대정체 (`jam_abs`) | 상대정체 (`jam_rel`) |",
         "|---|---|---|",
-        f"| 기준 | 전체 평균속도 하위 {JAM_QUANTILE * 100:.0f}% | "
-        f"동일 경로 평소 속도 대비 하위 {JAM_QUANTILE * 100:.0f}% |",
-        f"| 임계값 | {meta['abs_threshold']:.2f} mph | "
-        f"평소 속도의 {meta['rel_threshold'] * 100:.1f}% |",
+        (
+            f"| 기준 | 전체 평균속도 하위 {JAM_QUANTILE * 100:.0f}% | "
+            f"동일 경로 평소 속도 대비 하위 {JAM_QUANTILE * 100:.0f}% |"
+        ),
+        (
+            f"| 임계값 | {meta['abs_threshold']:.2f} mph | "
+            f"평소 속도의 {meta['rel_threshold'] * 100:.1f}% |"
+        ),
         f"| 정체 비율 | {meta['abs_ratio'] * 100:.1f}% | {meta['rel_ratio'] * 100:.1f}% |",
         "",
-        f"- 상대정체는 표본 {MIN_ROUTE_TRIPS}건 이상인 경로 "
-        f"**{format_int(meta['reliable_routes'])}개**를 기준으로 계산했다.",
+        (
+            f"- 상대정체는 표본 {MIN_ROUTE_TRIPS}건 이상인 경로 "
+            f"**{format_int(meta['reliable_routes'])}개**를 기준으로 계산했다."
+        ),
         f"- 두 정의가 같은 판정을 내린 비율 : **{meta['agreement'] * 100:.1f}%**",
         "",
         "### 두 타깃이 실제로 잡아내는 트립",
@@ -272,7 +301,7 @@ def _section_targets(context: dict) -> list[str]:
     ]
 
 
-def _section_stats(context: dict) -> list[str]:
+def _section_stats(context: dict[str, Any]) -> list[str]:
     """기술통계·상관계수·t-test 절을 만든다.
 
     Args:
@@ -317,10 +346,14 @@ def _section_stats(context: dict) -> list[str]:
             f"#### {result['검정 대상']}",
             "",
             f"- 귀무가설 : {result['귀무가설']}",
-            f"- {result['집단 A']} : n = {format_int(result['n(A)'])}, "
-            f"평균 = {result['평균(A)']:.3f}",
-            f"- {result['집단 B']} : n = {format_int(result['n(B)'])}, "
-            f"평균 = {result['평균(B)']:.3f}",
+            (
+                f"- {result['집단 A']} : n = {format_int(result['n(A)'])}, "
+                f"평균 = {result['평균(A)']:.3f}"
+            ),
+            (
+                f"- {result['집단 B']} : n = {format_int(result['n(B)'])}, "
+                f"평균 = {result['평균(B)']:.3f}"
+            ),
             f"- t = {result['t 통계량']:.4f}, p = {result['p-value']:.4e}",
             f"- **해석** : {result['해석']}",
             "",
@@ -328,7 +361,7 @@ def _section_stats(context: dict) -> list[str]:
     return lines
 
 
-def _section_visuals(context: dict) -> list[str]:
+def _section_visuals(context: dict[str, Any]) -> list[str]:
     """시각화 산출물 절을 만든다.
 
     Args:
@@ -356,7 +389,7 @@ def _section_visuals(context: dict) -> list[str]:
     return lines
 
 
-def _section_model(context: dict) -> list[str]:
+def _section_model(context: dict[str, Any]) -> list[str]:
     """ML 모델 결과 절을 만든다.
 
     Args:
@@ -403,8 +436,10 @@ def _section_model(context: dict) -> list[str]:
             "",
             f"- 전처리 후 피처 수 : {result['n_features']}개",
             f"- 학습 시간 : {result['fit_seconds']:.1f}초",
-            f"- 정확도 : {result['scores']['정확도']:.4f} / "
-            f"F1(macro) : {result['scores']['F1(macro)']:.4f}",
+            (
+                f"- 정확도 : {result['scores']['정확도']:.4f} / "
+                f"F1(macro) : {result['scores']['F1(macro)']:.4f}"
+            ),
             "",
             "```",
             result["report_text"].rstrip(),
@@ -420,7 +455,7 @@ def _section_model(context: dict) -> list[str]:
     return lines
 
 
-def _section_conclusion(context: dict) -> list[str]:
+def _section_conclusion(context: dict[str, Any]) -> list[str]:
     """결론 및 한계 절을 만든다.
 
     Args:
@@ -465,7 +500,7 @@ def _section_conclusion(context: dict) -> list[str]:
     ]
 
 
-def build_report(context: dict) -> str:
+def build_report(context: dict[str, Any]) -> str:
     """전체 보고서 마크다운 문자열을 만든다.
 
     Args:
@@ -492,7 +527,7 @@ def build_report(context: dict) -> str:
     return "\n".join(lines)
 
 
-def write_report(context: dict) -> str:
+def write_report(context: dict[str, Any]) -> str:
     """보고서를 생성해 outputs/report.md로 저장한다.
 
     Args:

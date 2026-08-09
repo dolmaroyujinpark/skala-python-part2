@@ -13,6 +13,7 @@
 """
 
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import polars as pl
@@ -87,7 +88,9 @@ def aggregate_with_polars_lazy(path: Path) -> tuple[pl.DataFrame, float]:
             # 속도를 계산할 수 있는 행만 남긴다 (predicate pushdown 대상)
             .filter((pl.col("duration_min") > 0) & (pl.col("trip_distance") > 0))
             .with_columns(
-                (pl.col("trip_distance") / (pl.col("duration_min") / 60)).alias("speed_mph")
+                (pl.col("trip_distance") / (pl.col("duration_min") / 60)).alias(
+                    "speed_mph"
+                )
             )
             .group_by("passenger_count")
             .agg(
@@ -130,7 +133,9 @@ def aggregate_with_pandas(pdf: pd.DataFrame) -> pd.DataFrame:
     return result.reset_index()
 
 
-def compare_aggregations(pandas_agg: pd.DataFrame, polars_agg: pl.DataFrame) -> dict:
+def compare_aggregations(
+    pandas_agg: pd.DataFrame, polars_agg: pl.DataFrame
+) -> dict[str, Any]:
     """두 라이브러리의 집계 결과를 병합해 차이를 드러낸다.
 
     Pandas의 `groupby`는 그룹 키가 결측인 행을 기본적으로 제외하지만,
@@ -146,7 +151,9 @@ def compare_aggregations(pandas_agg: pd.DataFrame, polars_agg: pl.DataFrame) -> 
     """
     polars_pd = polars_agg.to_pandas()
     merged = pandas_agg.merge(
-        polars_pd, on="passenger_count", how="outer",
+        polars_pd,
+        on="passenger_count",
+        how="outer",
         suffixes=("_pandas", "_polars"),
     ).sort_values("passenger_count", na_position="last")
 
@@ -175,15 +182,19 @@ def compare_missing(pdf: pd.DataFrame, pldf: pl.DataFrame) -> pd.DataFrame:
     """
     pandas_null = pdf.isna().sum()
     polars_null = pldf.null_count().to_pandas().iloc[0]
-    result = pd.DataFrame({
-        "pandas_결측": pandas_null,
-        "polars_결측": polars_null.reindex(pandas_null.index),
-    })
+    result = pd.DataFrame(
+        {
+            "pandas_결측": pandas_null,
+            "polars_결측": polars_null.reindex(pandas_null.index),
+        }
+    )
     result["일치"] = result["pandas_결측"] == result["polars_결측"]
     return result
 
 
-def compare_quantiles(pdf: pd.DataFrame, pldf: pl.DataFrame, column: str) -> pd.DataFrame:
+def compare_quantiles(
+    pdf: pd.DataFrame, pldf: pl.DataFrame, column: str
+) -> pd.DataFrame:
     """동일 컬럼의 분위수를 두 라이브러리로 계산해 비교한다.
 
     Polars의 quantile 기본 보간법은 'nearest', Pandas는 'linear'이므로
@@ -201,16 +212,18 @@ def compare_quantiles(pdf: pd.DataFrame, pldf: pl.DataFrame, column: str) -> pd.
     quantiles = [0.25, 0.50, 0.75]
     rows = []
     for q in quantiles:
-        rows.append({
-            "분위수": f"{int(q * 100)}%",
-            "pandas(linear)": pdf[column].quantile(q),
-            "polars(기본=nearest)": pldf[column].quantile(q),
-            "polars(linear 명시)": pldf[column].quantile(q, interpolation="linear"),
-        })
+        rows.append(
+            {
+                "분위수": f"{int(q * 100)}%",
+                "pandas(linear)": pdf[column].quantile(q),
+                "polars(기본=nearest)": pldf[column].quantile(q),
+                "polars(linear 명시)": pldf[column].quantile(q, interpolation="linear"),
+            }
+        )
     return pd.DataFrame(rows).set_index("분위수")
 
 
-def compare_loaders(path: Path) -> dict:
+def compare_loaders(path: Path) -> dict[str, Any]:
     """Pandas와 Polars 로딩 결과를 종합 비교한다.
 
     Args:
@@ -222,12 +235,16 @@ def compare_loaders(path: Path) -> dict:
     """
     subsection("1-1. Pandas / Polars 이중 로딩")
     pdf, pandas_sec = load_with_pandas(path)
-    print(f"  · Pandas  read_parquet  : {pandas_sec:.3f}초  -> "
-          f"{pdf.shape[0]:,}행 x {pdf.shape[1]}열")
+    print(
+        f"  · Pandas  read_parquet  : {pandas_sec:.3f}초  -> "
+        f"{pdf.shape[0]:,}행 x {pdf.shape[1]}열"
+    )
 
     pldf, polars_sec = load_with_polars(path)
-    print(f"  · Polars  read_parquet  : {polars_sec:.3f}초  -> "
-          f"{pldf.shape[0]:,}행 x {pldf.shape[1]}열")
+    print(
+        f"  · Polars  read_parquet  : {polars_sec:.3f}초  -> "
+        f"{pldf.shape[0]:,}행 x {pldf.shape[1]}열"
+    )
 
     speedup = pandas_sec / polars_sec if polars_sec > 0 else float("nan")
     print(f"  · Polars가 Pandas 대비 {speedup:.2f}배 빠름")
@@ -239,7 +256,9 @@ def compare_loaders(path: Path) -> dict:
     missing_df = compare_missing(pdf, pldf)
     all_missing_match = bool(missing_df["일치"].all())
     total_missing = int(missing_df["pandas_결측"].sum())
-    print(f"  · 컬럼별 결측 수 일치   : {all_missing_match} (전체 결측 {total_missing:,}건)")
+    print(
+        f"  · 컬럼별 결측 수 일치   : {all_missing_match} (전체 결측 {total_missing:,}건)"
+    )
 
     quantile_df = compare_quantiles(pdf, pldf, "trip_distance")
     print("  · trip_distance 분위수 비교 (보간법 차이 확인)")
@@ -259,17 +278,23 @@ def compare_loaders(path: Path) -> dict:
     print(f"  · Polars scan_parquet + group_by : {lazy_sec:.3f}초")
     print(f"  · Pandas  groupby                : {pandas_agg_sec:.3f}초")
     agg_speedup = pandas_agg_sec / lazy_sec if lazy_sec > 0 else float("nan")
-    print(f"  · Lazy 집계가 {agg_speedup:.2f}배 빠름 "
-          f"(필요한 {len(LAZY_SCAN_COLUMNS)}개 컬럼만 읽기 때문)")
+    print(
+        f"  · Lazy 집계가 {agg_speedup:.2f}배 빠름 "
+        f"(필요한 {len(LAZY_SCAN_COLUMNS)}개 컬럼만 읽기 때문)"
+    )
 
     agg = compare_aggregations(pandas_agg, polars_agg)
     print("\n  · 승객 수별 속도 집계 결과 대조 (정제 전 원본이므로 이상치 포함)")
     print(agg["table"].round(3).to_string())
-    print(f"\n  · 그룹 수 — Pandas {agg['pandas_groups']}개 / Polars {agg['polars_groups']}개")
+    print(
+        f"\n  · 그룹 수 — Pandas {agg['pandas_groups']}개 / Polars {agg['polars_groups']}개"
+    )
     if agg["polars_groups"] > agg["pandas_groups"]:
         print("    -> Pandas groupby는 그룹 키가 결측인 행을 기본적으로 제외하지만,")
         print("       Polars group_by는 null을 하나의 그룹으로 유지한다.")
-        print(f"       이 데이터에서는 {agg['null_group_trips']:,}건이 그 차이에 해당한다.")
+        print(
+            f"       이 데이터에서는 {agg['null_group_trips']:,}건이 그 차이에 해당한다."
+        )
         print("    -> 두 결과를 맞추려면 pandas는 dropna=False를 주거나,")
         print("       집계 전에 그룹 키의 결측을 명시적으로 제거해야 한다.")
         print("    -> 이 null 그룹이 2단계에서 확인할 '구조적 결측 블록'이다.")

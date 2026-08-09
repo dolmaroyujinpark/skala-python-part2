@@ -35,11 +35,11 @@ OBSERVATION_MONTH = 5
 # ----------------------------------------------------------------------------
 # 2. 분석 상수
 # ----------------------------------------------------------------------------
-RANDOM_STATE = 42          # 재현성을 위한 난수 시드
-SAMPLE_SIZE = 200_000      # 모델 학습에 사용할 표본 크기 (전체 300만 행은 학습 시간 과다)
-TEST_SIZE = 0.2            # 홀드아웃 테스트 비율
-CV_FOLDS = 5               # 교차검증 폴드 수
-ALPHA = 0.05               # 유의수준 (p-value 해석 기준)
+RANDOM_STATE = 42  # 재현성을 위한 난수 시드
+SAMPLE_SIZE = 200_000  # 모델 학습에 사용할 표본 크기 (전체 300만 행은 학습 시간 과다)
+TEST_SIZE = 0.2  # 홀드아웃 테스트 비율
+CV_FOLDS = 5  # 교차검증 폴드 수
+ALPHA = 0.05  # 유의수준 (p-value 해석 기준)
 
 # 정체 판정 기준 — 하위 33%를 정체로 본다
 JAM_QUANTILE = 1 / 3
@@ -50,14 +50,14 @@ MIN_ROUTE_TRIPS = 30
 # 3. 데이터 정제 경계값
 #    NYC TLC 데이터에 남아 있는 물리적으로 불가능한 값을 걸러내기 위한 임계치
 # ----------------------------------------------------------------------------
-MIN_DURATION_MIN = 1.0     # 1분 미만 주행은 오기록으로 간주
-MAX_DURATION_MIN = 180.0   # 3시간 초과 주행은 미터기 미종료로 간주
-MIN_SPEED_MPH = 1.0        # 1mph 미만은 사실상 정지 상태
-MAX_SPEED_MPH = 70.0       # 70mph 초과는 시내 주행으로 불가능
-MAX_TRIP_DISTANCE = 50.0   # 50마일 초과는 관외 이동으로 분석 대상 외
-MAX_SAME_ZONE_DISTANCE = 10.0   # 출발=도착인데 10마일 초과면 좌표 오류
-UNKNOWN_ZONE_IDS = (264, 265)   # TLC 정의상 264=Unknown, 265=N/A
-UNKNOWN_RATECODE = 99           # RatecodeID 99 = 'unknown' (NaN 아닌 코드값 결측)
+MIN_DURATION_MIN = 1.0  # 1분 미만 주행은 오기록으로 간주
+MAX_DURATION_MIN = 180.0  # 3시간 초과 주행은 미터기 미종료로 간주
+MIN_SPEED_MPH = 1.0  # 1mph 미만은 사실상 정지 상태
+MAX_SPEED_MPH = 70.0  # 70mph 초과는 시내 주행으로 불가능
+MAX_TRIP_DISTANCE = 50.0  # 50마일 초과는 관외 이동으로 분석 대상 외
+MAX_SAME_ZONE_DISTANCE = 10.0  # 출발=도착인데 10마일 초과면 좌표 오류
+UNKNOWN_ZONE_IDS = (264, 265)  # TLC 정의상 264=Unknown, 265=N/A
+UNKNOWN_RATECODE = 99  # RatecodeID 99 = 'unknown' (NaN 아닌 코드값 결측)
 
 # ----------------------------------------------------------------------------
 # 4. 컬럼 정의
@@ -72,10 +72,17 @@ UNKNOWN_RATECODE = 99           # RatecodeID 99 = 'unknown' (NaN 아닌 코드�
 #     - 거리/승객수    : 모델 수치형 피처이자 통계 대상
 #     - 요금 3종      : 통계·상관계수 대상 (모델 피처로는 쓰지 않는다)
 REQUIRED_COLUMNS = [
-    "tpep_pickup_datetime", "tpep_dropoff_datetime",
-    "PULocationID", "DOLocationID", "VendorID", "RatecodeID",
-    "trip_distance", "passenger_count",
-    "fare_amount", "tip_amount", "total_amount",
+    "tpep_pickup_datetime",
+    "tpep_dropoff_datetime",
+    "PULocationID",
+    "DOLocationID",
+    "VendorID",
+    "RatecodeID",
+    "trip_distance",
+    "passenger_count",
+    "fare_amount",
+    "tip_amount",
+    "total_amount",
 ]
 
 # (2) 모델 학습 피처 — 승차 시점에 알 수 있는 정보만 쓴다.
@@ -88,15 +95,24 @@ FEATURE_COLUMNS = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 # (3) 기술통계·상관계수 산출 대상.
 #     현상을 설명하는 것이 목적이므로 (2)와 달리 사후 정보를 포함해도 된다.
 STAT_COLUMNS = [
-    "trip_distance", "duration_min", "speed_mph",
-    "fare_amount", "tip_amount", "total_amount", "passenger_count",
+    "trip_distance",
+    "duration_min",
+    "speed_mph",
+    "fare_amount",
+    "tip_amount",
+    "total_amount",
+    "passenger_count",
 ]
 
 # (4) Polars Lazy 스캔으로 읽을 컬럼.
 #     scan_parquet의 projection pushdown 효과를 확인하기 위해 필요한 컬럼만 읽는다.
 LAZY_SCAN_COLUMNS = [
-    "tpep_pickup_datetime", "tpep_dropoff_datetime",
-    "trip_distance", "PULocationID", "DOLocationID", "passenger_count",
+    "tpep_pickup_datetime",
+    "tpep_dropoff_datetime",
+    "trip_distance",
+    "PULocationID",
+    "DOLocationID",
+    "passenger_count",
 ]
 
 # 학습할 타깃 2종 — 정의가 다르면 성능과 해석이 어떻게 맞바뀌는지 비교한다

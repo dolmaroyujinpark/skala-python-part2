@@ -12,6 +12,8 @@
 산출 파일  : 없음 (정제된 DataFrame과 처리 이력을 반환)
 """
 
+from typing import Any
+
 import pandas as pd
 
 from src.common import format_int, subsection
@@ -76,13 +78,15 @@ def add_speed_feature(df: pd.DataFrame) -> pd.DataFrame:
         ValueError: duration_min에 0 이하 값이 남아 있는 경우.
     """
     if (df["duration_min"] <= 0).any():
-        raise ValueError("duration_min에 0 이하 값이 남아 있어 속도를 계산할 수 없습니다.")
+        raise ValueError(
+            "duration_min에 0 이하 값이 남아 있어 속도를 계산할 수 없습니다."
+        )
     df = df.copy()
     df["speed_mph"] = df["trip_distance"] / (df["duration_min"] / 60)
     return df
 
 
-def diagnose_missing(df: pd.DataFrame) -> dict:
+def diagnose_missing(df: pd.DataFrame) -> dict[str, Any]:
     """결측 현황을 NaN과 코드값 결측으로 나누어 진단한다.
 
     NYC TLC 데이터는 '알 수 없음'을 NaN이 아니라 약속된 코드값으로 기록한다.
@@ -95,30 +99,34 @@ def diagnose_missing(df: pd.DataFrame) -> dict:
         dict: nan_table(컬럼별 NaN 수), code_table(코드값 결측 수), duplicates(중복행 수).
     """
     nan_counts = df.isna().sum()
-    nan_table = pd.DataFrame({
-        "결측수": nan_counts,
-        "비율(%)": (nan_counts / len(df) * 100).round(3),
-    })
+    nan_table = pd.DataFrame(
+        {
+            "결측수": nan_counts,
+            "비율(%)": (nan_counts / len(df) * 100).round(3),
+        }
+    )
     nan_table = nan_table[nan_table["결측수"] > 0]
 
-    unknown_zone = (
-        df["PULocationID"].isin(UNKNOWN_ZONE_IDS) | df["DOLocationID"].isin(UNKNOWN_ZONE_IDS)
+    unknown_zone = df["PULocationID"].isin(UNKNOWN_ZONE_IDS) | df["DOLocationID"].isin(
+        UNKNOWN_ZONE_IDS
     )
     unknown_rate = df["RatecodeID"] == UNKNOWN_RATECODE
-    code_table = pd.DataFrame([
-        {
-            "항목": f"RatecodeID == {UNKNOWN_RATECODE} (unknown)",
-            "행수": int(unknown_rate.sum()),
-            "비율(%)": round(unknown_rate.mean() * 100, 3),
-            "처리": "유지 — 별도 범주로 학습",
-        },
-        {
-            "항목": f"출발/도착 존이 {UNKNOWN_ZONE_IDS} (Unknown/NA)",
-            "행수": int(unknown_zone.sum()),
-            "비율(%)": round(unknown_zone.mean() * 100, 3),
-            "처리": "제거 — 존이 핵심 피처라 미상은 사용 불가",
-        },
-    ]).set_index("항목")
+    code_table = pd.DataFrame(
+        [
+            {
+                "항목": f"RatecodeID == {UNKNOWN_RATECODE} (unknown)",
+                "행수": int(unknown_rate.sum()),
+                "비율(%)": round(unknown_rate.mean() * 100, 3),
+                "처리": "유지 — 별도 범주로 학습",
+            },
+            {
+                "항목": f"출발/도착 존이 {UNKNOWN_ZONE_IDS} (Unknown/NA)",
+                "행수": int(unknown_zone.sum()),
+                "비율(%)": round(unknown_zone.mean() * 100, 3),
+                "처리": "제거 — 존이 핵심 피처라 미상은 사용 불가",
+            },
+        ]
+    ).set_index("항목")
 
     return {
         "nan_table": nan_table,
@@ -128,7 +136,7 @@ def diagnose_missing(df: pd.DataFrame) -> dict:
     }
 
 
-def diagnose_missing_block(df: pd.DataFrame) -> dict:
+def diagnose_missing_block(df: pd.DataFrame) -> dict[str, Any]:
     """결측이 무작위인지, 특정 행 블록에 몰려 있는지 판별한다.
 
     결측이 있는 컬럼들의 결측 위치(불리언 마스크)가 서로 완전히 일치하면,
@@ -156,23 +164,35 @@ def diagnose_missing_block(df: pd.DataFrame) -> dict:
         return {"has_block": False, "columns": nan_columns, "block_rows": 0}
 
     block_rows = int(base_mask.sum())
-    print(f"  · 아래 {len(identical)}개 컬럼의 결측 위치가 완전히 동일하다: {identical}")
+    print(
+        f"  · 아래 {len(identical)}개 컬럼의 결측 위치가 완전히 동일하다: {identical}"
+    )
     print(f"  · 동일 결측 블록 크기: {block_rows:,}행 ({base_mask.mean() * 100:.1f}%)")
-    print("    -> 값이 개별적으로 빠진 것이 아니라, 특정 소스가 필드를 통째로 비운 것이다.")
+    print(
+        "    -> 값이 개별적으로 빠진 것이 아니라, 특정 소스가 필드를 통째로 비운 것이다."
+    )
 
     # 블록 안팎의 벤더 구성이 다르면 서로 다른 수집 경로임을 뒷받침한다
-    vendor_table = pd.DataFrame({
-        "결측 블록": df.loc[base_mask, "VendorID"].value_counts(),
-        "나머지": df.loc[~base_mask, "VendorID"].value_counts(),
-    }).fillna(0).astype(int)
+    vendor_table = (
+        pd.DataFrame(
+            {
+                "결측 블록": df.loc[base_mask, "VendorID"].value_counts(),
+                "나머지": df.loc[~base_mask, "VendorID"].value_counts(),
+            }
+        )
+        .fillna(0)
+        .astype(int)
+    )
     vendor_table.index.name = "VendorID"
     print("\n  · 블록 안팎의 VendorID 구성")
     print(vendor_table.to_string())
 
     block_only = [v for v in vendor_table.index if vendor_table.loc[v, "나머지"] == 0]
     rest_only = [v for v in vendor_table.index if vendor_table.loc[v, "결측 블록"] == 0]
-    if block_only or rest_only:
-        print(f"    -> 블록에만 있는 벤더 {block_only}, 나머지에만 있는 벤더 {rest_only}")
+    if len(block_only) > 0 or len(rest_only) > 0:
+        print(
+            f"    -> 블록에만 있는 벤더 {block_only}, 나머지에만 있는 벤더 {rest_only}"
+        )
         print("    -> 두 집단은 서로 다른 데이터 파이프라인에서 온 것으로 보인다.")
 
     return {
@@ -186,7 +206,9 @@ def diagnose_missing_block(df: pd.DataFrame) -> dict:
     }
 
 
-def _drop_rows(df: pd.DataFrame, mask: pd.Series, label: str, steps: list) -> pd.DataFrame:
+def _drop_rows(
+    df: pd.DataFrame, mask: pd.Series, label: str, steps: list[dict[str, Any]]
+) -> pd.DataFrame:
     """조건에 해당하는 행을 제거하고 처리 이력을 기록한다.
 
     제거 단계마다 같은 형식으로 기록하기 위해 공용 헬퍼로 분리했다.
@@ -233,46 +255,60 @@ def clean_dataset(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 
     # (3) 관측 기간을 벗어난 승차 시각 — 원본에는 2008/2009년 레코드가 섞여 있다
     pickup = df["tpep_pickup_datetime"]
-    out_of_period = (pickup.dt.year != OBSERVATION_YEAR) | (pickup.dt.month != OBSERVATION_MONTH)
+    out_of_period = (pickup.dt.year != OBSERVATION_YEAR) | (
+        pickup.dt.month != OBSERVATION_MONTH
+    )
     period_label = f"관측 기간({OBSERVATION_YEAR}-{OBSERVATION_MONTH:02d}) 밖 승차 시각"
     df = _drop_rows(df, out_of_period, period_label, steps)
 
     # (4) 소요시간 이상치 — 속도 계산 전에 반드시 처리한다
     duration_bad = ~df["duration_min"].between(MIN_DURATION_MIN, MAX_DURATION_MIN)
-    duration_label = f"소요시간 {MIN_DURATION_MIN:g}분 미만 / {MAX_DURATION_MIN:g}분 초과"
+    duration_label = (
+        f"소요시간 {MIN_DURATION_MIN:g}분 미만 / {MAX_DURATION_MIN:g}분 초과"
+    )
     df = _drop_rows(df, duration_bad, duration_label, steps)
 
     # (5) 속도 파생 후 속도 이상치
     df = add_speed_feature(df)
     speed_bad = ~df["speed_mph"].between(MIN_SPEED_MPH, MAX_SPEED_MPH)
     df = _drop_rows(
-        df, speed_bad, f"평균속도 {MIN_SPEED_MPH:g}mph 미만 / {MAX_SPEED_MPH:g}mph 초과", steps
+        df,
+        speed_bad,
+        f"평균속도 {MIN_SPEED_MPH:g}mph 미만 / {MAX_SPEED_MPH:g}mph 초과",
+        steps,
     )
 
     # (6) 요금·거리 이상치
     df = _drop_rows(df, df["fare_amount"] <= 0, "요금 0 이하", steps)
-    df = _drop_rows(df, df["trip_distance"] > MAX_TRIP_DISTANCE,
-                    f"주행거리 {MAX_TRIP_DISTANCE:g}마일 초과", steps)
+    df = _drop_rows(
+        df,
+        df["trip_distance"] > MAX_TRIP_DISTANCE,
+        f"주행거리 {MAX_TRIP_DISTANCE:g}마일 초과",
+        steps,
+    )
 
     # (7) 코드값 결측 — 존 미상은 핵심 피처가 비는 것이므로 제거
-    unknown_zone = (
-        df["PULocationID"].isin(UNKNOWN_ZONE_IDS) | df["DOLocationID"].isin(UNKNOWN_ZONE_IDS)
+    unknown_zone = df["PULocationID"].isin(UNKNOWN_ZONE_IDS) | df["DOLocationID"].isin(
+        UNKNOWN_ZONE_IDS
     )
     df = _drop_rows(df, unknown_zone, f"출발/도착 존 미상 {UNKNOWN_ZONE_IDS}", steps)
 
     # (8) 논리적 모순 — 같은 존인데 장거리로 기록된 행
-    same_zone_far = (
-        (df["PULocationID"] == df["DOLocationID"]) & (df["trip_distance"] > MAX_SAME_ZONE_DISTANCE)
+    same_zone_far = (df["PULocationID"] == df["DOLocationID"]) & (
+        df["trip_distance"] > MAX_SAME_ZONE_DISTANCE
     )
-    df = _drop_rows(df, same_zone_far,
-                    f"출발=도착인데 {MAX_SAME_ZONE_DISTANCE:g}마일 초과", steps)
+    df = _drop_rows(
+        df, same_zone_far, f"출발=도착인데 {MAX_SAME_ZONE_DISTANCE:g}마일 초과", steps
+    )
 
     removed = start_rows - len(df)
-    print(f"  · 최종 행수: {len(df):,}  (총 제거 {removed:,}행, {removed / start_rows * 100:.2f}%)")
+    print(
+        f"  · 최종 행수: {len(df):,}  (총 제거 {removed:,}행, {removed / start_rows * 100:.2f}%)"
+    )
     return df, pd.DataFrame(steps).set_index("처리 단계")
 
 
-def build_targets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+def build_targets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, Any]]:
     """정체 여부를 나타내는 두 가지 타깃을 만든다.
 
     두 정의는 잡아내는 현상이 다르다.
@@ -292,36 +328,51 @@ def build_targets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     # (1) 절대정체 — 전체 평균속도 분포의 하위 33%
     abs_threshold = df["speed_mph"].quantile(JAM_QUANTILE)
     df["jam_abs"] = (df["speed_mph"] < abs_threshold).astype(int)
-    print(f"  · 절대정체 임계값: {abs_threshold:.2f} mph "
-          f"(정체 비율 {df['jam_abs'].mean() * 100:.1f}%)")
+    print(
+        f"  · 절대정체 임계값: {abs_threshold:.2f} mph "
+        f"(정체 비율 {df['jam_abs'].mean() * 100:.1f}%)"
+    )
 
     # (2) 상대정체 — 동일 경로(출발존→도착존)의 중앙 속도 대비 비율
     #     표본이 적은 경로는 중앙값이 불안정하므로 최소 건수 기준을 둔다
-    route_stats = df.groupby(["PULocationID", "DOLocationID"])["speed_mph"].agg(["median", "size"])
+    route_stats = df.groupby(["PULocationID", "DOLocationID"])["speed_mph"].agg(
+        ["median", "size"]
+    )
     reliable = route_stats[route_stats["size"] >= MIN_ROUTE_TRIPS]
-    print(f"  · 표본 {MIN_ROUTE_TRIPS}건 이상인 경로: {len(reliable):,}개 "
-          f"(전체 경로쌍 {len(route_stats):,}개 중)")
+    print(
+        f"  · 표본 {MIN_ROUTE_TRIPS}건 이상인 경로: {len(reliable):,}개 "
+        f"(전체 경로쌍 {len(route_stats):,}개 중)"
+    )
 
     before = len(df)
-    df = df.join(reliable["median"].rename("route_median_mph"),
-                 on=["PULocationID", "DOLocationID"], how="inner")
-    print(f"  · 경로 기준 매칭 후: {before:,} -> {len(df):,}행 "
-          f"(표본 부족 경로 {before - len(df):,}행 제외)")
+    df = df.join(
+        reliable["median"].rename("route_median_mph"),
+        on=["PULocationID", "DOLocationID"],
+        how="inner",
+    )
+    print(
+        f"  · 경로 기준 매칭 후: {before:,} -> {len(df):,}행 "
+        f"(표본 부족 경로 {before - len(df):,}행 제외)"
+    )
 
     df["speed_ratio"] = df["speed_mph"] / df["route_median_mph"]
     rel_threshold = df["speed_ratio"].quantile(JAM_QUANTILE)
     df["jam_rel"] = (df["speed_ratio"] < rel_threshold).astype(int)
-    print(f"  · 상대정체 임계값: 평소 속도의 {rel_threshold * 100:.1f}% 미만 "
-          f"(정체 비율 {df['jam_rel'].mean() * 100:.1f}%)")
+    print(
+        f"  · 상대정체 임계값: 평소 속도의 {rel_threshold * 100:.1f}% 미만 "
+        f"(정체 비율 {df['jam_rel'].mean() * 100:.1f}%)"
+    )
 
     agreement = float((df["jam_abs"] == df["jam_rel"]).mean())
     print(f"  · 두 정의가 같은 판정을 내린 비율: {agreement * 100:.1f}%")
 
     # 두 타깃이 실제로 어떤 트립을 잡는지 대조한다
-    profile = pd.DataFrame({
-        "절대정체": _target_profile(df, "jam_abs"),
-        "상대정체": _target_profile(df, "jam_rel"),
-    }).T
+    profile = pd.DataFrame(
+        {
+            "절대정체": _target_profile(df, "jam_abs"),
+            "상대정체": _target_profile(df, "jam_rel"),
+        }
+    ).T
     print("\n  · 각 타깃이 '정체'로 분류한 트립의 성격")
     print(profile.round(2).to_string())
 
@@ -331,8 +382,8 @@ def build_targets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         "abs_ratio": float(df["jam_abs"].mean()),
         "rel_ratio": float(df["jam_rel"].mean()),
         "agreement": agreement,
-        "reliable_routes": int(len(reliable)),
-        "rows_after_route_join": int(len(df)),
+        "reliable_routes": len(reliable),
+        "rows_after_route_join": len(df),
         "profile": profile,
     }
     return df, meta
@@ -351,12 +402,14 @@ def _target_profile(df: pd.DataFrame, target: str) -> pd.Series:
         pd.Series: 중앙 거리·소요시간·속도와 단거리 비중.
     """
     jam = df[df[target] == 1]
-    return pd.Series({
-        "중앙 거리(mi)": jam["trip_distance"].median(),
-        "중앙 소요(분)": jam["duration_min"].median(),
-        "중앙 속도(mph)": jam["speed_mph"].median(),
-        "1마일 미만 비중(%)": (jam["trip_distance"] < 1).mean() * 100,
-    })
+    return pd.Series(
+        {
+            "중앙 거리(mi)": jam["trip_distance"].median(),
+            "중앙 소요(분)": jam["duration_min"].median(),
+            "중앙 속도(mph)": jam["speed_mph"].median(),
+            "1마일 미만 비중(%)": (jam["trip_distance"] < 1).mean() * 100,
+        }
+    )
 
 
 def summarize_shape(df: pd.DataFrame, label: str) -> str:
